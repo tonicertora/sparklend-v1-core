@@ -7,6 +7,7 @@ import {IERC20} from '../../../dependencies/openzeppelin/contracts/IERC20.sol';
 import {IStableDebtToken} from '../../../interfaces/IStableDebtToken.sol';
 import {IVariableDebtToken} from '../../../interfaces/IVariableDebtToken.sol';
 import {IAToken} from '../../../interfaces/IAToken.sol';
+import {ROUNDING} from '../../../interfaces/IScaledBalanceToken.sol';
 import {UserConfiguration} from '../configuration/UserConfiguration.sol';
 import {ReserveConfiguration} from '../configuration/ReserveConfiguration.sol';
 import {Helpers} from '../helpers/Helpers.sol';
@@ -121,6 +122,7 @@ library BorrowLogic {
         currentStableRate
       );
     } else {
+      IVariableDebtToken(reserveCache.variableDebtTokenAddress).setRounding(ROUNDING.UP);
       (isFirstBorrowing, reserveCache.nextScaledVariableDebt) = IVariableDebtToken(
         reserveCache.variableDebtTokenAddress
       ).mint(params.user, params.onBehalfOf, params.amount, reserveCache.nextVariableBorrowIndex);
@@ -219,6 +221,7 @@ library BorrowLogic {
         reserveCache.stableDebtTokenAddress
       ).burn(params.onBehalfOf, paybackAmount);
     } else {
+      IVariableDebtToken(reserveCache.variableDebtTokenAddress).setRounding(ROUNDING.DOWN);
       reserveCache.nextScaledVariableDebt = IVariableDebtToken(
         reserveCache.variableDebtTokenAddress
       ).burn(params.onBehalfOf, paybackAmount, reserveCache.nextVariableBorrowIndex);
@@ -244,6 +247,7 @@ library BorrowLogic {
     );
 
     if (params.useATokens) {
+      IAToken(reserveCache.aTokenAddress).setRounding(ROUNDING.UP);
       IAToken(reserveCache.aTokenAddress).burn(
         msg.sender,
         reserveCache.aTokenAddress,
@@ -333,10 +337,12 @@ library BorrowLogic {
         reserveCache.stableDebtTokenAddress
       ).burn(msg.sender, stableDebt);
 
+      IVariableDebtToken(reserveCache.variableDebtTokenAddress).setRounding(ROUNDING.UP);
       (, reserveCache.nextScaledVariableDebt) = IVariableDebtToken(
         reserveCache.variableDebtTokenAddress
       ).mint(msg.sender, msg.sender, stableDebt, reserveCache.nextVariableBorrowIndex);
     } else {
+      IVariableDebtToken(reserveCache.variableDebtTokenAddress).setRounding(ROUNDING.DOWN);
       reserveCache.nextScaledVariableDebt = IVariableDebtToken(
         reserveCache.variableDebtTokenAddress
       ).burn(msg.sender, variableDebt, reserveCache.nextVariableBorrowIndex);

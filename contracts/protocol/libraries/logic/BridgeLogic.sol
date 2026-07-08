@@ -5,6 +5,7 @@ import {IERC20} from '../../../dependencies/openzeppelin/contracts/IERC20.sol';
 import {GPv2SafeERC20} from '../../../dependencies/gnosis/contracts/GPv2SafeERC20.sol';
 import {SafeCast} from '../../../dependencies/openzeppelin/contracts/SafeCast.sol';
 import {IAToken} from '../../../interfaces/IAToken.sol';
+import {ROUNDING} from '../../../interfaces/IScaledBalanceToken.sol';
 import {DataTypes} from '../types/DataTypes.sol';
 import {UserConfiguration} from '../configuration/UserConfiguration.sol';
 import {ReserveConfiguration} from '../configuration/ReserveConfiguration.sol';
@@ -77,6 +78,7 @@ library BridgeLogic {
 
     reserve.updateInterestRates(reserveCache, asset, 0, 0);
 
+    IAToken(reserveCache.aTokenAddress).setRounding(ROUNDING.DOWN);
     bool isFirstSupply = IAToken(reserveCache.aTokenAddress).mint(
       msg.sender,
       onBehalfOf,

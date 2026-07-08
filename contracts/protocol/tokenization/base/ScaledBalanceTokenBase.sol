@@ -5,7 +5,7 @@ import {SafeCast} from '../../../dependencies/openzeppelin/contracts/SafeCast.so
 import {Errors} from '../../libraries/helpers/Errors.sol';
 import {WadRayMath} from '../../libraries/math/WadRayMath.sol';
 import {IPool} from '../../../interfaces/IPool.sol';
-import {IScaledBalanceToken} from '../../../interfaces/IScaledBalanceToken.sol';
+import {IScaledBalanceToken, ROUNDING} from '../../../interfaces/IScaledBalanceToken.sol';
 import {MintableIncentivizedERC20} from './MintableIncentivizedERC20.sol';
 
 /**
@@ -16,6 +16,34 @@ import {MintableIncentivizedERC20} from './MintableIncentivizedERC20.sol';
 abstract contract ScaledBalanceTokenBase is MintableIncentivizedERC20, IScaledBalanceToken {
   using WadRayMath for uint256;
   using SafeCast for uint256;
+
+  bytes32 public constant ROUNDING_STORAGE_SLOT =
+    bytes32(uint256(keccak256('ROUNDING_STORAGE_SLOT')) - 1);
+
+  function setRounding(ROUNDING roundingDirection) external onlyPool {
+    _setRounding(roundingDirection);
+  }
+
+  function _setRounding(ROUNDING roundingDirection) internal {
+    bytes32 slot = ROUNDING_STORAGE_SLOT;
+    assembly {
+      sstore(slot, roundingDirection)
+    }
+  }
+
+  function getRounding() external view returns (ROUNDING) {
+    return _getRounding();
+  }
+
+  function _getRounding() internal view returns (ROUNDING) {
+    ROUNDING roundingDirection;
+    bytes32 slot = ROUNDING_STORAGE_SLOT;
+    assembly {
+      roundingDirection := sload(slot)
+    }
+
+    return roundingDirection;
+  }
 
   /**
    * @dev Constructor.
@@ -69,8 +97,15 @@ abstract contract ScaledBalanceTokenBase is MintableIncentivizedERC20, IScaledBa
     uint256 amount,
     uint256 index
   ) internal returns (bool) {
-    uint256 amountScaled = amount.rayDiv(index);
+    ROUNDING roundingDirection = _getRounding();
+    require(roundingDirection != ROUNDING.INACTIVE, Errors.INACTIVE_ROUNDING);
+
+    uint256 amountScaled = roundingDirection == ROUNDING.UP
+      ? amount.rayDivCeil(index)
+      : amount.rayDivFloor(index);
     require(amountScaled != 0, Errors.INVALID_MINT_AMOUNT);
+
+    _setRounding(ROUNDING.INACTIVE);
 
     uint256 scaledBalance = super.balanceOf(onBehalfOf);
     uint256 balanceIncrease = scaledBalance.rayMul(index) -
@@ -97,12 +132,23 @@ abstract contract ScaledBalanceTokenBase is MintableIncentivizedERC20, IScaledBa
    * @param index The variable debt index of the reserve
    */
   function _burnScaled(address user, address target, uint256 amount, uint256 index) internal {
-    uint256 amountScaled = amount.rayDiv(index);
-    require(amountScaled != 0, Errors.INVALID_BURN_AMOUNT);
+    ROUNDING roundingDirection = _getRounding();
+    require(roundingDirection != ROUNDING.INACTIVE, Errors.INACTIVE_ROUNDING);
 
     uint256 scaledBalance = super.balanceOf(user);
-    uint256 balanceIncrease = scaledBalance.rayMul(index) -
-      scaledBalance.rayMul(_userState[user].additionalData);
+    uint256 fullBalance = scaledBalance.rayMul(index);
+
+    // When the entire balance is being burned, burn the exact scaled balance. Re-scaling the
+    // rounded nominal balance would overshoot by 1 wei and revert (UP) or leave scaled dust
+    // (DOWN); partial burns keep the protocol-favorable directional rounding.
+    uint256 amountScaled = amount == fullBalance
+      ? scaledBalance
+      : (roundingDirection == ROUNDING.UP ? amount.rayDivCeil(index) : amount.rayDivFloor(index));
+    require(amountScaled != 0, Errors.INVALID_BURN_AMOUNT);
+
+    _setRounding(ROUNDING.INACTIVE);
+
+    uint256 balanceIncrease = fullBalance - scaledBalance.rayMul(_userState[user].additionalData);
 
     _userState[user].additionalData = index.toUint128();
 

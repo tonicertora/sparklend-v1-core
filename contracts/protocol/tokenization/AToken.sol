@@ -9,6 +9,7 @@ import {Errors} from '../libraries/helpers/Errors.sol';
 import {WadRayMath} from '../libraries/math/WadRayMath.sol';
 import {IPool} from '../../interfaces/IPool.sol';
 import {IAToken} from '../../interfaces/IAToken.sol';
+import {ROUNDING} from '../../interfaces/IScaledBalanceToken.sol';
 import {IAaveIncentivesController} from '../../interfaces/IAaveIncentivesController.sol';
 import {IInitializableAToken} from '../../interfaces/IInitializableAToken.sol';
 import {ScaledBalanceTokenBase} from './base/ScaledBalanceTokenBase.sol';
@@ -108,6 +109,8 @@ contract AToken is VersionedInitializable, ScaledBalanceTokenBase, EIP712Base, I
   /// @inheritdoc IAToken
   function mintToTreasury(uint256 amount, uint256 index) external virtual override onlyPool {
     if (amount == 0) {
+      // Consume the rounding flag set by the Pool so it never persists past a no-op mint.
+      _setRounding(ROUNDING.INACTIVE);
       return;
     }
     _mintScaled(address(POOL), _treasury, amount, index);

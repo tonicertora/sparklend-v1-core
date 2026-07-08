@@ -3,6 +3,9 @@
 cache
 artifacts
 temp-artifacts
+
+#Foundry files
+out/
 node_modules
 dist/
 build/

@@ -5,6 +5,7 @@ import {GPv2SafeERC20} from '../../../dependencies/gnosis/contracts/GPv2SafeERC2
 import {Address} from '../../../dependencies/openzeppelin/contracts/Address.sol';
 import {IERC20} from '../../../dependencies/openzeppelin/contracts/IERC20.sol';
 import {IAToken} from '../../../interfaces/IAToken.sol';
+import {ROUNDING} from '../../../interfaces/IScaledBalanceToken.sol';
 import {ReserveConfiguration} from '../configuration/ReserveConfiguration.sol';
 import {Errors} from '../helpers/Errors.sol';
 import {WadRayMath} from '../math/WadRayMath.sol';
@@ -101,6 +102,7 @@ library PoolLogic {
         reserve.accruedToTreasury = 0;
         uint256 normalizedIncome = reserve.getNormalizedIncome();
         uint256 amountToMint = accruedToTreasury.rayMul(normalizedIncome);
+        IAToken(reserve.aTokenAddress).setRounding(ROUNDING.DOWN);
         IAToken(reserve.aTokenAddress).mintToTreasury(amountToMint, normalizedIncome);
 
         emit MintedToTreasury(assetAddress, amountToMint);

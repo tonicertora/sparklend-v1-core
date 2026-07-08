@@ -15,6 +15,7 @@ import {EModeLogic} from './EModeLogic.sol';
 import {UserConfiguration} from '../../libraries/configuration/UserConfiguration.sol';
 import {ReserveConfiguration} from '../../libraries/configuration/ReserveConfiguration.sol';
 import {IAToken} from '../../../interfaces/IAToken.sol';
+import {ROUNDING} from '../../../interfaces/IScaledBalanceToken.sol';
 import {IStableDebtToken} from '../../../interfaces/IStableDebtToken.sol';
 import {IVariableDebtToken} from '../../../interfaces/IVariableDebtToken.sol';
 import {IPriceOracleGetter} from '../../../interfaces/IPriceOracleGetter.sol';
@@ -263,6 +264,7 @@ library LiquidationLogic {
     );
 
     // Burn the equivalent amount of aToken, sending the underlying to the liquidator
+    vars.collateralAToken.setRounding(ROUNDING.UP);
     vars.collateralAToken.burn(
       params.user,
       msg.sender,
@@ -325,6 +327,7 @@ library LiquidationLogic {
     LiquidationCallLocalVars memory vars
   ) internal {
     if (vars.userVariableDebt >= vars.actualDebtToLiquidate) {
+      IVariableDebtToken(vars.debtReserveCache.variableDebtTokenAddress).setRounding(ROUNDING.DOWN);
       vars.debtReserveCache.nextScaledVariableDebt = IVariableDebtToken(
         vars.debtReserveCache.variableDebtTokenAddress
       ).burn(
@@ -335,6 +338,9 @@ library LiquidationLogic {
     } else {
       // If the user doesn't have variable debt, no need to try to burn variable debt tokens
       if (vars.userVariableDebt != 0) {
+        IVariableDebtToken(vars.debtReserveCache.variableDebtTokenAddress).setRounding(
+          ROUNDING.DOWN
+        );
         vars.debtReserveCache.nextScaledVariableDebt = IVariableDebtToken(
           vars.debtReserveCache.variableDebtTokenAddress
         ).burn(params.user, vars.userVariableDebt, vars.debtReserveCache.nextVariableBorrowIndex);

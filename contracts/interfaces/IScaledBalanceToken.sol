@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0
 pragma solidity ^0.8.0;
 
+enum ROUNDING {
+  INACTIVE,
+  UP,
+  DOWN
+}
+
 /**
  * @title IScaledBalanceToken
  * @author Aave
@@ -69,4 +75,11 @@ interface IScaledBalanceToken {
    * @return The last index interest was accrued to the user's balance, expressed in ray
    */
   function getPreviousIndex(address user) external view returns (uint256);
+
+  /**
+   * @notice Sets the rounding direction consumed by the next scaled mint/burn.
+   * @dev Single-use: the flag is reset to INACTIVE after being consumed. Callable only by the Pool.
+   * @param roundingDirection The rounding direction (UP or DOWN) for the next scaled operation
+   */
+  function setRounding(ROUNDING roundingDirection) external;
 }
